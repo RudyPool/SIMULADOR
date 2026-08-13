@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulador de Transferencia de Acciones Societarias</title>
+  <style>
+    :root {
+      --primary: #0A192F;
+      --secondary: #0066CC;
+      --success: #10B981;
+      --danger: #EF4444;
+      --bg: #F0F4F8;
+      --card-bg: #FFFFFF;
+      --border: #CBD5E1;
+      --text: #0F172A;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      text-align: center;
+      color: var(--primary);
+      margin-bottom: 5px;
+    }
+
+    p.subtitle {
+      text-align: center;
+      color: #64748B;
+      margin-bottom: 25px;
+    }
+
+    .config-card, .scenario-card {
+      background: var(--card-bg);
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+      margin-bottom: 25px;
+      border: 1px solid var(--border);
+    }
+
+    h2 {
+      font-size: 18px;
+      color: var(--primary);
+      border-bottom: 2px solid var(--secondary);
+      padding-bottom: 8px;
+      margin-top: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .form-group {
+      display: flex;
+      gap: 15px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    label {
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    input[type="number"], input[type="text"], select {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+
+    th, td {
+      border: 1px solid var(--border);
+      padding: 10px;
+      text-align: left;
+      font-size: 14px;
+    }
+
+    th {
+      background-color: #F8FAFC;
+      color: var(--primary);
+    }
+
+    .btn {
+      background-color: var(--secondary);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background 0.2s;
+    }
+
+    .btn:hover {
+      background-color: #004C99;
+    }
+
+    .btn-danger {
+      background-color: var(--danger);
+      padding: 4px 8px;
+      font-size: 12px;
+    }
+
+    .btn-danger:hover {
+      background-color: #DC2626;
+    }
+
+    .btn-success {
+      background-color: var(--success);
+      font-size: 16px;
+      padding: 12px 24px;
+      display: block;
+      margin: 20px auto;
+    }
+
+    .btn-success:hover {
+      background-color: #059669;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    .badge-primary { background: #E0F2FE; color: #0369A1; }
+    .badge-success { background: #D1FAE5; color: #047857; }
+
+    .result-highlight {
+      background: #F1F5F9;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>🏛️ Simulador de Transferencia de Acciones de FELIPE REYES</h1>
+  <p class="subtitle">Cálculo automatizado de escenarios societarios (Inicial, Transacciones y Final)</p>
+
+  <!-- CONFIGURACIÓN GLOBAL -->
+  <div class="config-card">
+    <h2>1. Configuración de la Sociedad</h2>
+    <div class="form-group">
+      <label>Valor Nominal por Acción (S/.):</label>
+      <input type="number" id="valorNominal" value="1.00" step="0.01" min="0.01" onchange="recalcularTodo()">
+      <small style="color: #64748B;">El valor total en Soles se recalcula automáticamente.</small>
+    </div>
+  </div>
+
+  <!-- ESCENARIO INICIAL -->
+  <div class="scenario-card">
+    <h2>
+      2. Escenario Inicial (Socios Fundadores)
+      <button class="btn" onclick="agregarSocioInicial()">+ Agregar Socio</button>
+    </h2>
+    <table id="tablaInicial">
+      <thead>
+        <tr>
+          <th>Nombre del Socio</th>
+          <th>Cantidad de Acciones</th>
+          <th>Valor Total (S/.)</th>
+          <th>Participación (%)</th>
+          <th>Acción</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Filas dinámicas -->
+      </tbody>
+      <tfoot>
+        <tr class="result-highlight">
+          <td>TOTALES:</td>
+          <td id="totAccionesInicial">0</td>
+          <td id="totMontoInicial">S/. 0.00</td>
+          <td id="totPorcentajeInicial">0%</td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <!-- ESCENARIO TRANSITORIO / COMPRAVENTA -->
+  <div class="scenario-card">
+    <h2>
+      3. Escenario Transitorio (Operaciones de Transferencia)
+      <button class="btn" onclick="agregarTransaccion()">+ Agregar Operación</button>
+    </h2>
+    <table id="tablaTransitorio">
+      <thead>
+        <tr>
+          <th>Vendedor (Socio Existente)</th>
+          <th>Comprador (Socio Existente o Nuevo)</th>
+          <th>Modo de Cálculo</th>
+          <th>Cantidad de Acciones / %</th>
+          <th>Acciones Transferidas</th>
+          <th>Monto Operación (S/.)</th>
+          <th>Acción</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Filas dinámicas -->
+      </tbody>
+    </table>
+  </div>
+
+  <!-- BOTÓN DE CÁLCULO -->
+  <button class="btn btn-success" onclick="procesarCalculos()">⚡ Calcular Escenario Final</button>
+
+  <!-- ESCENARIO FINAL -->
+  <div class="scenario-card" style="border-left: 5px solid var(--success);">
+    <h2>4. Escenario Final (Resultado Societario)</h2>
+    <table id="tablaFinal">
+      <thead>
+        <tr>
+          <th>Nombre del Socio</th>
+          <th>Estado</th>
+          <th>Acciones Finales</th>
+          <th>Monto Capital (S/.)</th>
+          <th>Participación Final (%)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td colspan="5" style="text-align:center; color:#94A3B8;">Haz clic en "Calcular Escenario Final" para generar los resultados.</td></tr>
+      </tbody>
+      <tfoot>
+        <tr class="result-highlight">
+          <td>TOTAL CAPITAL SOCIAL:</td>
+          <td>-</td>
+          <td id="totAccionesFinal">0</td>
+          <td id="totMontoFinal">S/. 0.00</td>
+          <td id="totPorcentajeFinal">0%</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+
+<script>
+  // Estructuras de datos iniciales prediseñadas (basadas en tu caso)
+  let sociosIniciales = [
+    { nombre: "LUIS ALBERTO VIGNOLO RIOS", acciones: 35000 },
+    { nombre: "FELIPE ANTONIO REYES LOPEZ", acciones: 35000 }
+  ];
+
+  let transacciones = [
+    { vendedor: "FELIPE ANTONIO REYES LOPEZ", comprador: "GUSTAVO MUNGUIA", modo: "porcentaje", valor: 40 },
+    { vendedor: "LUIS ALBERTO VIGNOLO RIOS", comprador: "GUSTAVO MUNGUIA", modo: "porcentaje", valor: 10 }
+  ];
+
+  window.onload = function() {
+    renderizarSociosIniciales();
+    renderizarTransacciones();
+    procesarCalculos();
+  };
+
+  function getValorNominal() {
+    return parseFloat(document.getElementById('valorNominal').value) || 1.0;
+  }
+
+  function renderizarSociosIniciales() {
+    const tbody = document.querySelector("#tablaInicial tbody");
+    tbody.innerHTML = "";
+    
+    let totalAcciones = sociosIniciales.reduce((acc, s) => acc + s.acciones, 0);
+    let valorNominal = getValorNominal();
+
+    sociosIniciales.forEach((socio, idx) => {
+      let monto = socio.acciones * valorNominal;
+      let pct = totalAcciones > 0 ? ((socio.acciones / totalAcciones) * 100).toFixed(2) : 0;
+
+      let tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><input type="text" value="${socio.nombre}" onchange="actualizarSocioInicial(${idx}, 'nombre', this.value)"></td>
+        <td><input type="number" value="${socio.acciones}" min="0" onchange="actualizarSocioInicial(${idx}, 'acciones', parseInt(this.value)||0)"></td>
+        <td>S/. ${monto.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
+        <td>${pct}%</td>
+        <td><button class="btn btn-danger" onclick="eliminarSocioInicial(${idx})">Eliminar</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    document.getElementById("totAccionesInicial").innerText = totalAcciones.toLocaleString('es-PE');
+    document.getElementById("totMontoInicial").innerText = "S/. " + (totalAcciones * valorNominal).toLocaleString('es-PE', {minimumFractionDigits: 2});
+    document.getElementById("totPorcentajeInicial").innerText = totalAcciones > 0 ? "100%" : "0%";
+
+    actualizarSelectsVendedoresCompradores();
+  }
+
+  function actualizarSocioInicial(idx, campo, valor) {
+    sociosIniciales[idx][campo] = valor;
+    renderizarSociosIniciales();
+  }
+
+  function agregarSocioInicial() {
+    sociosIniciales.push({ nombre: "NUEVO SOCIO", acciones: 0 });
+    renderizarSociosIniciales();
+  }
+
+  function eliminarSocioInicial(idx) {
+    sociosIniciales.splice(idx, 1);
+    renderizarSociosIniciales();
+  }
+
+  function renderizarTransacciones() {
+    const tbody = document.querySelector("#tablaTransitorio tbody");
+    tbody.innerHTML = "";
+
+    transacciones.forEach((t, idx) => {
+      let tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><select onchange="actualizarTransaccion(${idx}, 'vendedor', this.value)" id="vendedor_${idx}"></select></td>
+        <td><input type="text" value="${t.comprador}" onchange="actualizarTransaccion(${idx}, 'comprador', this.value)"></td>
+        <td>
+          <select onchange="actualizarTransaccion(${idx}, 'modo', this.value)">
+            <option value="porcentaje" ${t.modo==='porcentaje'?'selected':''}>% del Total Empresa</option>
+            <option value="acciones" ${t.modo==='acciones'?'selected':''}>Cantidad de Acciones</option>
+          </select>
+        </td>
+        <td><input type="number" value="${t.valor}" step="0.01" onchange="actualizarTransaccion(${idx}, 'valor', parseFloat(this.value)||0)"></td>
+        <td id="accionesCalc_${idx}">-</td>
+        <td id="montoCalc_${idx}">-</td>
+        <td><button class="btn btn-danger" onclick="eliminarTransaccion(${idx})">Eliminar</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    actualizarSelectsVendedoresCompradores();
+  }
+
+  function actualizarSelectsVendedoresCompradores() {
+    transacciones.forEach((t, idx) => {
+      let selectVendedor = document.getElementById(`vendedor_${idx}`);
+      if (selectVendedor) {
+        selectVendedor.innerHTML = "";
+        sociosIniciales.forEach(s => {
+          let opt = document.createElement("option");
+          opt.value = s.nombre;
+          opt.innerText = s.nombre;
+          if (s.nombre === t.vendedor) opt.selected = true;
+          selectVendedor.appendChild(opt);
+        });
+      }
+    });
+  }
+
+  function actualizarTransaccion(idx, campo, valor) {
+    transacciones[idx][campo] = valor;
+    renderizarTransacciones();
+  }
+
+  function agregarTransaccion() {
+    let vendedorDefault = sociosIniciales.length > 0 ? sociosIniciales[0].nombre : "";
+    transacciones.push({ vendedor: vendedorDefault, comprador: "NUEVO SOCIO", modo: "porcentaje", valor: 0 });
+    renderizarTransacciones();
+  }
+
+  function eliminarTransaccion(idx) {
+    transacciones.splice(idx, 1);
+    renderizarTransacciones();
+  }
+
+  function recalcularTodo() {
+    renderizarSociosIniciales();
+    procesarCalculos();
+  }
+
+  function procesarCalculos() {
+    let totalAccionesGlobal = sociosIniciales.reduce((acc, s) => acc + s.acciones, 0);
+    let valorNominal = getValorNominal();
+
+    // Copia profunda para los saldos finales
+    let saldosFinales = {};
+    sociosIniciales.forEach(s => {
+      saldosFinales[s.nombre] = { acciones: s.acciones, esNuevo: false };
+    });
+
+    // Procesar cada transacción y calcular espacios vacíos
+    transacciones.forEach((t, idx) => {
+      let accionesTransferidas = 0;
+
+      if (t.modo === 'porcentaje') {
+        accionesTransferidas = Math.round((t.valor / 100) * totalAccionesGlobal);
+      } else {
+        accionesTransferidas = t.valor;
+      }
+
+      let montoOperacion = accionesTransferidas * valorNominal;
+
+      // Renderizar en tabla transitoria
+      document.getElementById(`accionesCalc_${idx}`).innerText = accionesTransferidas.toLocaleString('es-PE');
+      document.getElementById(`montoCalc_${idx}`).innerText = "S/. " + montoOperacion.toLocaleString('es-PE', {minimumFractionDigits: 2});
+
+      // Descontar al vendedor
+      if (saldosFinales[t.vendedor]) {
+        saldosFinales[t.vendedor].acciones -= accionesTransferidas;
+      }
+
+      // Sumar al comprador
+      if (!saldosFinales[t.comprador]) {
+        saldosFinales[t.comprador] = { acciones: 0, esNuevo: true };
+      }
+      saldosFinales[t.comprador].acciones += accionesTransferidas;
+    });
+
+    // Renderizar Escenario Final
+    const tbodyFinal = document.querySelector("#tablaFinal tbody");
+    tbodyFinal.innerHTML = "";
+
+    let totalAccionesFinales = 0;
+
+    Object.keys(saldosFinales).forEach(nombre => {
+      let datos = saldosFinales[nombre];
+      let acciones = datos.acciones;
+      totalAccionesFinales += acciones;
+      let monto = acciones * valorNominal;
+      let pct = totalAccionesGlobal > 0 ? ((acciones / totalAccionesGlobal) * 100).toFixed(2) : 0;
+
+      let tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><strong>${nombre}</strong></td>
+        <td><span class="badge ${datos.esNuevo ? 'badge-success' : 'badge-primary'}">${datos.esNuevo ? 'Nuevo Socio' : 'Fundador'}</span></td>
+        <td>${acciones.toLocaleString('es-PE')}</td>
+        <td>S/. ${monto.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
+        <td>${pct}%</td>
+      `;
+      tbodyFinal.appendChild(tr);
+    });
+
+    document.getElementById("totAccionesFinal").innerText = totalAccionesFinales.toLocaleString('es-PE');
+    document.getElementById("totMontoFinal").innerText = "S/. " + (totalAccionesFinales * valorNominal).toLocaleString('es-PE', {minimumFractionDigits: 2});
+    document.getElementById("totPorcentajeFinal").innerText = totalAccionesGlobal > 0 ? "100%" : "0%";
+  }
+</script>
+
+</body>
+</html>
