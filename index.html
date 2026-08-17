@@ -29,6 +29,77 @@
       padding: 20px;
     }
 
+    /* PANTALLA DE ACCESO RESTRINGIDO (MODAL LOGIN) */
+    #loginOverlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: #0A192F;
+      z-index: 999999;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .login-box {
+      background: #FFFFFF;
+      padding: 35px 30px;
+      border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      width: 100%;
+      max-width: 380px;
+      text-align: center;
+    }
+
+    .login-box h3 {
+      margin: 0 0 8px 0;
+      color: #0A192F;
+      font-size: 20px;
+    }
+
+    .login-box p {
+      color: #64748B;
+      font-size: 13px;
+      margin-bottom: 22px;
+    }
+
+    .login-box input {
+      width: 100%;
+      padding: 10px 12px;
+      margin-bottom: 15px;
+      border: 1px solid #CBD5E1;
+      border-radius: 6px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+
+    .login-box button {
+      width: 100%;
+      padding: 12px;
+      background: #0066CC;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-weight: bold;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .login-box button:hover {
+      background: #004C99;
+    }
+
+    .login-error {
+      color: #EF4444;
+      font-size: 12.5px;
+      margin-top: 12px;
+      display: none;
+      font-weight: 600;
+    }
+
     .container {
       max-width: 1100px;
       margin: 0 auto;
@@ -217,6 +288,20 @@
 
 <body>
 
+  <!-- CAPA DE LOGIN MODAL -->
+  <div id="loginOverlay">
+    <div class="login-box">
+      <h3>🔒 Acceso Privilegiado</h3>
+      <p>Ingresa tus credenciales autorizadas para acceder al simulador.</p>
+      <form onsubmit="validarLogin(event)">
+        <input type="text" id="logUser" placeholder="Usuario" autocomplete="off" required>
+        <input type="password" id="logPass" placeholder="Contraseña" required>
+        <button type="submit">Ingresar al Sistema</button>
+        <div id="logError" class="login-error">Credenciales incorrectas. Verifique los datos.</div>
+      </form>
+    </div>
+  </div>
+
   <div class="container">
     <h1>🏛️ Simulador de Transferencia de Acciones</h1>
     <p class="subtitle">Gestión y Cálculo de Operaciones Societarias</p>
@@ -250,7 +335,7 @@
           </tr>
         </thead>
         <tbody id="tbodyInicial">
-          <!-- Filas dinámicas generadas limpias -->
+          <!-- Filas dinámicas -->
         </tbody>
         <tfoot>
           <tr class="result-highlight">
@@ -327,10 +412,35 @@
   </div>
 
   <script>
+    // DICCIONARIO DE CREDENCIALES
+    const ACCESOS = {
+      "admin": "dorigot2026",
+      "gerencia": "socio2026",
+      "directorio": "clave2026"
+    };
+
+    function validarLogin(e) {
+      e.preventDefault();
+      const u = document.getElementById("logUser").value.trim();
+      const p = document.getElementById("logPass").value.trim();
+      const err = document.getElementById("logError");
+
+      if (ACCESOS[u] && ACCESOS[u] === p) {
+        document.getElementById("loginOverlay").style.display = "none";
+        sessionStorage.setItem("auth_simulador", "true");
+      } else {
+        err.style.display = "block";
+        document.getElementById("logPass").value = "";
+      }
+    }
+
     let socioRowCounter = 0;
     let transRowCounter = 0;
 
     window.onload = function () {
+      if (sessionStorage.getItem("auth_simulador") === "true") {
+        document.getElementById("loginOverlay").style.display = "none";
+      }
       agregarSocioInicial("", "", "Fundador");
     };
 
@@ -696,7 +806,6 @@
         }
       });
 
-      // Construcción de filas de la tabla de socios
       let filasSociosHtml = "";
       let totAccFinales = 0;
 
@@ -722,7 +831,6 @@
         `;
       });
 
-      // Construcción de filas de transferencias
       let filasTransHtml = "";
       if (listaTrans.length === 0) {
         filasTransHtml = `<tr><td colspan="5" style="padding: 10px; text-align: center; color: #64748B; border: 1px solid #CBD5E1;">No se registraron operaciones de transferencia.</td></tr>`;
@@ -740,7 +848,6 @@
         });
       }
 
-      // Plantilla HTML estructurada para Microsoft Word
       const wordContent = `
         <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
         <head>
@@ -835,7 +942,6 @@
         </html>
       `;
 
-      // Generar descarga directa como archivo compatible con Word (.doc)
       const blob = new Blob(['\ufeff', wordContent], {
         type: 'application/msword'
       });
