@@ -198,7 +198,7 @@
 
   <div class="container">
     <h1>🏛️ Simulador de Transferencia de Acciones</h1>
-    <p class="subtitle">Guía Organizada para Resolver Diversas Intervenciones, Tareas y Operaciones Societarias</p>
+    <p class="subtitle">Gestión y Cálculo de Operaciones Societarias</p>
 
     <!-- CONFIGURACIÓN GLOBAL -->
     <div class="config-card">
@@ -207,32 +207,33 @@
         <label>Valor Nominal por Acción (S/.):</label>
         <input type="number" id="valorNominal" value="1.00" step="0.01" min="0.01" style="width: 150px;"
           oninput="recalcularTotalesIniciales()">
-        <small style="color: #64748B;">El valor total en Soles se recalcula automáticamente.</small>
+        <small style="color: #64748B;">El valor total en Soles se recalcula automáticamente según el nominal.</small>
       </div>
     </div>
 
     <!-- ESCENARIO INICIAL -->
     <div class="scenario-card">
       <h2>
-        2. Escenario Inicial (Socios Fundadores)
-        <button type="button" class="btn" onclick="agregarSocioInicial('', '')">+ Agregar Socio</button>
+        2. Escenario Inicial (Estructura de Socios)
+        <button type="button" class="btn" onclick="agregarSocioInicial('', '', 'Fundador')">+ Agregar Socio</button>
       </h2>
       <table id="tablaInicial">
         <thead>
           <tr>
-            <th style="width: 35%;">Nombre del Socio</th>
-            <th style="width: 25%;">Cantidad de Acciones</th>
-            <th style="width: 20%;">Valor Total (S/.)</th>
-            <th style="width: 10%;">Participación (%)</th>
-            <th style="width: 10%;">Acción</th>
+            <th style="width: 30%;">Nombre del Socio</th>
+            <th style="width: 20%;">Situación / Tipo</th>
+            <th style="width: 18%;">Cantidad de Acciones</th>
+            <th style="width: 15%;">Capital (S/.)</th>
+            <th style="width: 10%;">Participación</th>
+            <th style="width: 7%;">Acción</th>
           </tr>
         </thead>
         <tbody id="tbodyInicial">
-          <!-- Filas dinámicas -->
+          <!-- Filas dinámicas generadas limpias -->
         </tbody>
         <tfoot>
           <tr class="result-highlight">
-            <td>TOTALES:</td>
+            <td colspan="2">TOTAL CAPITAL INICIAL:</td>
             <td id="totAccionesInicial">0</td>
             <td id="totMontoInicial">S/. 0.00</td>
             <td id="totPorcentajeInicial">0%</td>
@@ -245,16 +246,16 @@
     <!-- ESCENARIO TRANSITORIO / COMPRAVENTA -->
     <div class="scenario-card">
       <h2>
-        3. Escenario Transitorio (Operaciones de Transferencia)
+        3. Operaciones de Transferencia
         <button type="button" class="btn" onclick="agregarTransaccion()">+ Agregar Operación</button>
       </h2>
       <table id="tablaTransitorio">
         <thead>
           <tr>
-            <th style="width: 25%;">Vendedor</th>
-            <th style="width: 25%;">Comprador</th>
+            <th style="width: 25%;">Vendedor (Cede)</th>
+            <th style="width: 25%;">Comprador (Adquiere)</th>
             <th style="width: 18%;">Modo de Cálculo</th>
-            <th style="width: 12%;">Valor (% o Acc.)</th>
+            <th style="width: 12%;">Valor a Transferir</th>
             <th style="width: 10%;">Acciones Transf.</th>
             <th style="width: 10%;">Monto (S/.)</th>
             <th style="width: 5%;">Acción</th>
@@ -279,7 +280,7 @@
         <thead>
           <tr>
             <th>Nombre del Socio</th>
-            <th>Estado</th>
+            <th>Situación / Condición</th>
             <th>Acciones Finales</th>
             <th>Monto Capital (S/.)</th>
             <th>Participación Final (%)</th>
@@ -308,8 +309,8 @@
     let transRowCounter = 0;
 
     window.onload = function () {
-      agregarSocioInicial("Socio Fundador A", 6000);
-      agregarSocioInicial("Socio Fundador B", 4000);
+      // Inicia con una sola fila vacía lista para escribir
+      agregarSocioInicial("", "", "Fundador");
     };
 
     function getValorNominal() {
@@ -317,7 +318,7 @@
     }
 
     // 1. GESTIÓN DE SOCIOS INICIALES
-    function agregarSocioInicial(nombreDefault = "", accionesDefault = "") {
+    function agregarSocioInicial(nombreDefault = "", accionesDefault = "", situacionDefault = "Fundador") {
       socioRowCounter++;
       const id = socioRowCounter;
       const tbody = document.getElementById("tbodyInicial");
@@ -325,7 +326,15 @@
       const tr = document.createElement("tr");
       tr.id = `socio_row_${id}`;
       tr.innerHTML = `
-        <td><input type="text" class="socio-nombre" placeholder="Ingrese Nombre" value="${nombreDefault}" oninput="onCambioSocio()"></td>
+        <td><input type="text" class="socio-nombre" placeholder="Nombre del accionista" value="${nombreDefault}" oninput="onCambioSocio()"></td>
+        <td>
+          <select class="socio-tipo" onchange="onCambioSocio()">
+            <option value="Fundador" ${situacionDefault === 'Fundador' ? 'selected' : ''}>Socio Fundador</option>
+            <option value="Nuevo Socio" ${situacionDefault === 'Nuevo Socio' ? 'selected' : ''}>Nuevo Socio</option>
+            <option value="Inversionista" ${situacionDefault === 'Inversionista' ? 'selected' : ''}>Inversionista</option>
+            <option value="Estratégico" ${situacionDefault === 'Estratégico' ? 'selected' : ''}>Socio Estratégico</option>
+          </select>
+        </td>
         <td><input type="number" class="socio-acciones" placeholder="0" min="0" value="${accionesDefault}" oninput="onCambioSocio()"></td>
         <td class="socio-monto">S/. 0.00</td>
         <td class="socio-pct">0.00%</td>
@@ -354,9 +363,10 @@
       let lista = [];
       filas.forEach(fila => {
         const nombre = fila.querySelector(".socio-nombre").value.trim();
+        const tipo = fila.querySelector(".socio-tipo").value;
         const acciones = parseInt(fila.querySelector(".socio-acciones").value) || 0;
         if (nombre !== "" || acciones > 0) {
-          lista.push({ nombre: nombre, acciones: acciones });
+          lista.push({ nombre: nombre, tipo: tipo, acciones: acciones });
         }
       });
       return lista;
@@ -396,7 +406,7 @@
       tr.id = `trans_row_${id}`;
       tr.innerHTML = `
         <td><select class="trans-vendedor" id="select_vend_${id}"></select></td>
-        <td><input type="text" class="trans-comprador" placeholder="Nombre Comprador"></td>
+        <td><input type="text" class="trans-comprador" placeholder="Nombre de quien recibe"></td>
         <td>
           <select class="trans-modo">
             <option value="porcentaje">% del Total Empresa</option>
@@ -440,7 +450,7 @@
       selects.forEach(sel => poblarSelectVendedor(sel));
     }
 
-    // 3. PROCESAMIENTO DEL ESCENARIO FINAL
+    // 3. PROCESAR RESULTADOS FINALES
     function procesarCalculos() {
       const socios = getListaSocios();
       const valorNominal = getValorNominal();
@@ -449,7 +459,7 @@
       let saldosFinales = {};
       socios.forEach(s => {
         if (s.nombre) {
-          saldosFinales[s.nombre] = { acciones: s.acciones, esNuevo: false };
+          saldosFinales[s.nombre] = { tipo: s.tipo, acciones: s.acciones };
         }
       });
 
@@ -477,7 +487,7 @@
 
         if (comp !== "") {
           if (!saldosFinales[comp]) {
-            saldosFinales[comp] = { acciones: 0, esNuevo: true };
+            saldosFinales[comp] = { tipo: "Nuevo Socio", acciones: 0 };
           }
           saldosFinales[comp].acciones += accionesTransferidas;
         }
@@ -504,7 +514,7 @@
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td><strong>${nombre}</strong></td>
-          <td><span class="badge ${datos.esNuevo ? 'badge-success' : 'badge-primary'}">${datos.esNuevo ? 'Nuevo Socio' : 'Fundador'}</span></td>
+          <td><span class="badge ${datos.tipo === 'Nuevo Socio' ? 'badge-success' : 'badge-primary'}">${datos.tipo}</span></td>
           <td>${acciones.toLocaleString('es-PE')}</td>
           <td>S/. ${monto.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</td>
           <td>${pct}%</td>
@@ -530,13 +540,13 @@
         ["Valor Nominal por Acción:", `S/. ${valorNominal.toFixed(2)}`],
         ["Capital Social Total:", `S/. ${(totalAccionesGlobal * valorNominal).toLocaleString('es-PE', { minimumFractionDigits: 2 })}`],
         [],
-        ["SOCIO", "TIPO", "ACCIONES INICIALES", "CAPITAL INICIAL (S/.)", "PARTICIPACIÓN INICIAL (%)", "ACCIONES FINALES", "CAPITAL FINAL (S/.)", "PARTICIPACIÓN FINAL (%)"]
+        ["SOCIO", "SITUACIÓN / TIPO", "ACCIONES INICIALES", "CAPITAL INICIAL (S/.)", "PARTICIPACIÓN INICIAL (%)", "ACCIONES FINALES", "CAPITAL FINAL (S/.)", "PARTICIPACIÓN FINAL (%)"]
       ];
 
       let saldosFinales = {};
       socios.forEach(s => {
         if (s.nombre) {
-          saldosFinales[s.nombre] = { accionesIniciales: s.acciones, accionesFinales: s.acciones, esNuevo: false };
+          saldosFinales[s.nombre] = { tipo: s.tipo, accionesIniciales: s.acciones, accionesFinales: s.acciones };
         }
       });
 
@@ -566,7 +576,7 @@
 
         if (comp !== "") {
           if (!saldosFinales[comp]) {
-            saldosFinales[comp] = { accionesIniciales: 0, accionesFinales: 0, esNuevo: true };
+            saldosFinales[comp] = { tipo: "Nuevo Socio", accionesIniciales: 0, accionesFinales: 0 };
           }
           saldosFinales[comp].accionesFinales += accionesTransferidas;
         }
@@ -590,7 +600,7 @@
 
         datosComparativos.push([
           nombre,
-          d.esNuevo ? "Nuevo Socio" : "Socio Fundador",
+          d.tipo,
           d.accionesIniciales,
           capIni,
           pctIni,
