@@ -13,6 +13,7 @@
       --secondary: #0066CC;
       --success: #10B981;
       --excel: #1D6F42;
+      --word: #2B579A;
       --danger: #EF4444;
       --bg: #F0F4F8;
       --card-bg: #FFFFFF;
@@ -113,6 +114,7 @@
       justify-content: center;
       gap: 15px;
       margin: 25px 0;
+      flex-wrap: wrap;
     }
 
     .btn {
@@ -167,6 +169,25 @@
 
     .btn-excel:hover {
       background-color: #155231;
+    }
+
+    .btn-word {
+      background-color: var(--word);
+      color: white;
+      font-size: 15px;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: background 0.2s;
+    }
+
+    .btn-word:hover {
+      background-color: #1b3f73;
     }
 
     .badge {
@@ -270,7 +291,8 @@
     <!-- BOTONES DE ACCIÓN -->
     <div class="btn-actions">
       <button type="button" class="btn btn-success" onclick="procesarCalculos()">⚡ Calcular Escenario Final</button>
-      <button type="button" class="btn-excel" onclick="exportarExcel()">📊 Exportar Cuadro a Excel</button>
+      <button type="button" class="btn-excel" onclick="exportarExcel()">📊 Exportar a Excel</button>
+      <button type="button" class="btn-word" onclick="exportarWord()">📄 Exportar Informe a Word (.doc)</button>
     </div>
 
     <!-- ESCENARIO FINAL -->
@@ -309,7 +331,6 @@
     let transRowCounter = 0;
 
     window.onload = function () {
-      // Inicia con una sola fila vacía lista para escribir
       agregarSocioInicial("", "", "Fundador");
     };
 
@@ -618,6 +639,214 @@
       XLSX.utils.book_append_sheet(wb, wsTrans, "Detalle Transacciones");
 
       XLSX.writeFile(wb, "Cuadro_Restructuracion_Acciones.xlsx");
+    }
+
+    // 5. EXPORTACIÓN A WORD (.DOC)
+    function exportarWord() {
+      procesarCalculos();
+
+      const valorNominal = getValorNominal();
+      const socios = getListaSocios();
+      const totalAccionesGlobal = socios.reduce((acc, s) => acc + s.acciones, 0);
+      const capitalTotal = totalAccionesGlobal * valorNominal;
+      const fechaHoy = new Date().toLocaleDateString('es-PE', { year: 'numeric', month: 'long', day: 'numeric' });
+
+      let saldosFinales = {};
+      socios.forEach(s => {
+        if (s.nombre) {
+          saldosFinales[s.nombre] = { tipo: s.tipo, accionesIniciales: s.acciones, accionesFinales: s.acciones };
+        }
+      });
+
+      const filasTrans = document.querySelectorAll("#tbodyTransitorio tr");
+      let listaTrans = [];
+
+      filasTrans.forEach(fila => {
+        const vend = fila.querySelector(".trans-vendedor").value;
+        const comp = fila.querySelector(".trans-comprador").value.trim();
+        const modo = fila.querySelector(".trans-modo").value;
+        const val = parseFloat(fila.querySelector(".trans-valor").value) || 0;
+
+        let accionesTransferidas = 0;
+        if (modo === 'porcentaje') {
+          accionesTransferidas = Math.round((val / 100) * totalAccionesGlobal);
+        } else {
+          accionesTransferidas = Math.round(val);
+        }
+
+        if (vend && saldosFinales[vend]) {
+          saldosFinales[vend].accionesFinales -= accionesTransferidas;
+        }
+
+        if (comp !== "") {
+          if (!saldosFinales[comp]) {
+            saldosFinales[comp] = { tipo: "Nuevo Socio", accionesIniciales: 0, accionesFinales: 0 };
+          }
+          saldosFinales[comp].accionesFinales += accionesTransferidas;
+        }
+
+        if (vend || comp) {
+          listaTrans.push({
+            vendedor: vend || "-",
+            comprador: comp || "-",
+            modo: modo === 'porcentaje' ? `${val}% del Total` : `${val} Acciones`,
+            acciones: accionesTransferidas,
+            monto: accionesTransferidas * valorNominal
+          });
+        }
+      });
+
+      // Construcción de filas de la tabla de socios
+      let filasSociosHtml = "";
+      let totAccFinales = 0;
+
+      Object.keys(saldosFinales).forEach(nombre => {
+        const d = saldosFinales[nombre];
+        totAccFinales += d.accionesFinales;
+        const capIni = d.accionesIniciales * valorNominal;
+        const pctIni = totalAccionesGlobal > 0 ? ((d.accionesIniciales / totalAccionesGlobal) * 100).toFixed(2) : "0.00";
+        const capFin = d.accionesFinales * valorNominal;
+        const pctFin = totalAccionesGlobal > 0 ? ((d.accionesFinales / totalAccionesGlobal) * 100).toFixed(2) : "0.00";
+
+        filasSociosHtml += `
+          <tr>
+            <td style="padding: 8px; border: 1px solid #CBD5E1;"><strong>${nombre}</strong></td>
+            <td style="padding: 8px; border: 1px solid #CBD5E1; text-align: center;">${d.tipo}</td>
+            <td style="padding: 8px; border: 1px solid #CBD5E1; text-align: right;">${d.accionesIniciales.toLocaleString('es-PE')}</td>
+            <td style="padding: 8px; border: 1px solid #CBD5E1; text-align: right;">S/. ${capIni.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</td>
+            <td style="padding: 8px; border: 1px solid #CBD5E1; text-align: right;">${pctIni}%</td>
+            <td style="padding: 8px; border: 1px solid #CBD5E1; text-align: right; background-color: #F8FAFC;"><strong>${d.accionesFinales.toLocaleString('es-PE')}</strong></td>
+            <td style="padding: 8px; border: 1px solid #CBD5E1; text-align: right; background-color: #F8FAFC;"><strong>S/. ${capFin.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</strong></td>
+            <td style="padding: 8px; border: 1px solid #CBD5E1; text-align: right; background-color: #F8FAFC; color: #0066CC;"><strong>${pctFin}%</strong></td>
+          </tr>
+        `;
+      });
+
+      // Construcción de filas de transferencias
+      let filasTransHtml = "";
+      if (listaTrans.length === 0) {
+        filasTransHtml = `<tr><td colspan="5" style="padding: 10px; text-align: center; color: #64748B; border: 1px solid #CBD5E1;">No se registraron operaciones de transferencia.</td></tr>`;
+      } else {
+        listaTrans.forEach(t => {
+          filasTransHtml += `
+            <tr>
+              <td style="padding: 8px; border: 1px solid #CBD5E1;">${t.vendedor}</td>
+              <td style="padding: 8px; border: 1px solid #CBD5E1;">${t.comprador}</td>
+              <td style="padding: 8px; border: 1px solid #CBD5E1; text-align: center;">${t.modo}</td>
+              <td style="padding: 8px; border: 1px solid #CBD5E1; text-align: right;">${t.acciones.toLocaleString('es-PE')}</td>
+              <td style="padding: 8px; border: 1px solid #CBD5E1; text-align: right;">S/. ${t.monto.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</td>
+            </tr>
+          `;
+        });
+      }
+
+      // Plantilla HTML estructurada para Microsoft Word
+      const wordContent = `
+        <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+        <head>
+          <meta charset='utf-8'>
+          <title>Informe Societario de Transferencia de Acciones</title>
+          <style>
+            body { font-family: 'Calibri', 'Arial', sans-serif; font-size: 11pt; color: #0F172A; line-height: 1.3; }
+            h1 { font-size: 18pt; color: #0A192F; text-align: center; margin-bottom: 4px; font-weight: bold; }
+            h2 { font-size: 13pt; color: #0066CC; border-bottom: 2px solid #0066CC; padding-bottom: 4px; margin-top: 20px; }
+            p.sub { text-align: center; color: #64748B; font-size: 10.5pt; margin-top: 0; margin-bottom: 20px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 15px; font-size: 10pt; }
+            th { background-color: #0A192F; color: #FFFFFF; padding: 8px; border: 1px solid #0A192F; text-align: center; }
+            td { padding: 7px; border: 1px solid #CBD5E1; }
+            .box-info { background-color: #F8FAFC; border: 1px solid #CBD5E1; padding: 12px; margin-bottom: 15px; border-radius: 4px; }
+          </style>
+        </head>
+        <body>
+          <h1>INFORME DE ESTRUCTURA Y TRANSFERENCIA DE ACCIONES</h1>
+          <p class="sub">Fecha de Emisión: ${fechaHoy}</p>
+
+          <div class="box-info">
+            <strong>PARÁMETROS DE LA SOCIEDAD:</strong><br>
+            • <strong>Valor Nominal por Acción:</strong> S/. ${valorNominal.toFixed(2)}<br>
+            • <strong>Total de Acciones en Circulación:</strong> ${totalAccionesGlobal.toLocaleString('es-PE')}<br>
+            • <strong>Capital Social Total:</strong> S/. ${capitalTotal.toLocaleString('es-PE', { minimumFractionDigits: 2 })}
+          </div>
+
+          <h2>1. Resumen Comparativo de Tenencia Accionaria</h2>
+          <table>
+            <thead>
+              <tr>
+                <th rowspan="2">Accionista / Socio</th>
+                <th rowspan="2">Condición</th>
+                <th colspan="3" style="background-color: #1E293B;">Situación Inicial</th>
+                <th colspan="3" style="background-color: #0066CC;">Situación Final</th>
+              </tr>
+              <tr>
+                <th style="background-color: #334155;">Acciones</th>
+                <th style="background-color: #334155;">Capital (S/.)</th>
+                <th style="background-color: #334155;">Part. %</th>
+                <th style="background-color: #0284C7;">Acciones</th>
+                <th style="background-color: #0284C7;">Capital (S/.)</th>
+                <th style="background-color: #0284C7;">Part. %</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filasSociosHtml}
+            </tbody>
+            <tfoot>
+              <tr style="background-color: #F1F5F9; font-weight: bold;">
+                <td colspan="2">TOTAL CAPITAL SOCIAL:</td>
+                <td style="text-align: right;">${totalAccionesGlobal.toLocaleString('es-PE')}</td>
+                <td style="text-align: right;">S/. ${capitalTotal.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</td>
+                <td style="text-align: right;">100%</td>
+                <td style="text-align: right;">${totAccFinales.toLocaleString('es-PE')}</td>
+                <td style="text-align: right;">S/. ${(totAccFinales * valorNominal).toLocaleString('es-PE', { minimumFractionDigits: 2 })}</td>
+                <td style="text-align: right; color: #0066CC;">100%</td>
+              </tr>
+            </tfoot>
+          </table>
+
+          <h2>2. Bitácora de Operaciones de Transferencia</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Vendedor (Cede)</th>
+                <th>Comprador (Adquiere)</th>
+                <th>Modo / Condición</th>
+                <th>Acciones Cedidas</th>
+                <th>Importe de Operación (S/.)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filasTransHtml}
+            </tbody>
+          </table>
+
+          <br><br><br>
+          <table style="border: none; margin-top: 40px;">
+            <tr style="border: none;">
+              <td style="border: none; text-align: center; width: 50%;">
+                __________________________________<br>
+                <strong>Representante Legal / Gerencia</strong>
+              </td>
+              <td style="border: none; text-align: center; width: 50%;">
+                __________________________________<br>
+                <strong>Secretaría General / Registro de Acciones</strong>
+              </td>
+            </tr>
+          </table>
+        </body>
+        </html>
+      `;
+
+      // Generar descarga directa como archivo compatible con Word (.doc)
+      const blob = new Blob(['\ufeff', wordContent], {
+        type: 'application/msword'
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'Informe_Transferencia_Acciones.doc';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     }
   </script>
 
