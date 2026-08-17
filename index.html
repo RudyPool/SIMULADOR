@@ -29,7 +29,7 @@
       padding: 20px;
     }
 
-    /* PANTALLA DE ACCESO RESTRINGIDO (MODAL LOGIN) */
+    /* PANTALLA DE ACCESO RESTRINGIDO (LOGIN MODAL) */
     #loginOverlay {
       position: fixed;
       top: 0;
@@ -288,7 +288,7 @@
 
 <body>
 
-  <!-- CAPA DE LOGIN MODAL -->
+  <!-- CAPA DE LOGIN MODAL (SE MUESTRA SIEMPRE AL RECARGAR) -->
   <div id="loginOverlay">
     <div class="login-box">
       <h3>🔒 Acceso Privilegiado</h3>
@@ -427,7 +427,7 @@
 
       if (ACCESOS[u] && ACCESOS[u] === p) {
         document.getElementById("loginOverlay").style.display = "none";
-        sessionStorage.setItem("auth_simulador", "true");
+        err.style.display = "none";
       } else {
         err.style.display = "block";
         document.getElementById("logPass").value = "";
@@ -438,9 +438,7 @@
     let transRowCounter = 0;
 
     window.onload = function () {
-      if (sessionStorage.getItem("auth_simulador") === "true") {
-        document.getElementById("loginOverlay").style.display = "none";
-      }
+      // Inicia siempre con formulario de login visible y una fila de socio vacía
       agregarSocioInicial("", "", "Fundador");
     };
 
