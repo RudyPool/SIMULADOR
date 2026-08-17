@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Simulador de Transferencia de Acciones Societarias</title>
-  <!-- Librería externa ligera para exportar a Excel -->
+  <!-- SheetJS para exportar a Excel -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     :root {
@@ -132,8 +132,8 @@
 
     .btn-danger {
       background-color: var(--danger);
-      padding: 4px 8px;
-      font-size: 12px;
+      padding: 6px 12px;
+      font-size: 13px;
     }
 
     .btn-danger:hover {
@@ -198,8 +198,7 @@
 
   <div class="container">
     <h1>🏛️ Simulador de Transferencia de Acciones</h1>
-    <h2>DORIGOT</h2>
-    <p class="subtitle">Guía Organizada para Resolver Diversas Intervenciones, Tareas y Operaciones</p>
+    <p class="subtitle">Guía Organizada para Resolver Diversas Intervenciones, Tareas y Operaciones Societarias</p>
 
     <!-- CONFIGURACIÓN GLOBAL -->
     <div class="config-card">
@@ -207,7 +206,7 @@
       <div class="form-group">
         <label>Valor Nominal por Acción (S/.):</label>
         <input type="number" id="valorNominal" value="1.00" step="0.01" min="0.01" style="width: 150px;"
-          onchange="recalcularTodo()">
+          oninput="recalcularTotalesIniciales()">
         <small style="color: #64748B;">El valor total en Soles se recalcula automáticamente.</small>
       </div>
     </div>
@@ -216,7 +215,7 @@
     <div class="scenario-card">
       <h2>
         2. Escenario Inicial (Socios Fundadores)
-        <button class="btn" onclick="agregarSocioInicial()">+ Agregar Socio</button>
+        <button type="button" class="btn" onclick="agregarSocioInicial('', '')">+ Agregar Socio</button>
       </h2>
       <table id="tablaInicial">
         <thead>
@@ -228,7 +227,7 @@
             <th style="width: 10%;">Acción</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody id="tbodyInicial">
           <!-- Filas dinámicas -->
         </tbody>
         <tfoot>
@@ -247,7 +246,7 @@
     <div class="scenario-card">
       <h2>
         3. Escenario Transitorio (Operaciones de Transferencia)
-        <button class="btn" onclick="agregarTransaccion()">+ Agregar Operación</button>
+        <button type="button" class="btn" onclick="agregarTransaccion()">+ Agregar Operación</button>
       </h2>
       <table id="tablaTransitorio">
         <thead>
@@ -261,7 +260,7 @@
             <th style="width: 5%;">Acción</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody id="tbodyTransitorio">
           <!-- Filas dinámicas -->
         </tbody>
       </table>
@@ -269,8 +268,8 @@
 
     <!-- BOTONES DE ACCIÓN -->
     <div class="btn-actions">
-      <button class="btn btn-success" onclick="procesarCalculos()">⚡ Calcular Escenario Final</button>
-      <button class="btn-excel" onclick="exportarExcel()">📊 Exportar Cuadro a Excel</button>
+      <button type="button" class="btn btn-success" onclick="procesarCalculos()">⚡ Calcular Escenario Final</button>
+      <button type="button" class="btn-excel" onclick="exportarExcel()">📊 Exportar Cuadro a Excel</button>
     </div>
 
     <!-- ESCENARIO FINAL -->
@@ -286,10 +285,9 @@
             <th>Participación Final (%)</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody id="tbodyFinal">
           <tr>
-            <td colspan="5" style="text-align:center; color:#94A3B8;">Ingresa los datos arriba y haz clic en "Calcular
-              Escenario Final".</td>
+            <td colspan="5" style="text-align:center; color:#94A3B8;">Ingresa los datos arriba y haz clic en "Calcular Escenario Final".</td>
           </tr>
         </tbody>
         <tfoot>
@@ -306,173 +304,190 @@
   </div>
 
   <script>
-    let sociosIniciales = [];
-    let transacciones = [];
+    let socioRowCounter = 0;
+    let transRowCounter = 0;
 
     window.onload = function () {
-      agregarSocioInicial();
-      agregarSocioInicial();
+      agregarSocioInicial("Socio Fundador A", 6000);
+      agregarSocioInicial("Socio Fundador B", 4000);
     };
 
     function getValorNominal() {
       return parseFloat(document.getElementById('valorNominal').value) || 1.0;
     }
 
-    function renderizarSociosIniciales() {
-      const tbody = document.querySelector("#tablaInicial tbody");
-      tbody.innerHTML = "";
+    // 1. GESTIÓN DE SOCIOS INICIALES
+    function agregarSocioInicial(nombreDefault = "", accionesDefault = "") {
+      socioRowCounter++;
+      const id = socioRowCounter;
+      const tbody = document.getElementById("tbodyInicial");
 
-      let totalAcciones = sociosIniciales.reduce((acc, s) => acc + (parseInt(s.acciones) || 0), 0);
-      let valorNominal = getValorNominal();
-
-      sociosIniciales.forEach((socio, idx) => {
-        let numAcc = parseInt(socio.acciones) || 0;
-        let monto = numAcc * valorNominal;
-        let pct = totalAcciones > 0 ? ((numAcc / totalAcciones) * 100).toFixed(2) : "0.00";
-
-        let tr = document.createElement("tr");
-        tr.innerHTML = `
-        <td><input type="text" placeholder="Ingrese Nombre" value="${socio.nombre}" oninput="actualizarSocioInicial(${idx}, 'nombre', this.value)"></td>
-        <td><input type="number" placeholder="0" value="${socio.acciones === 0 ? '' : socio.acciones}" min="0" oninput="actualizarSocioInicial(${idx}, 'acciones', parseInt(this.value)||0)"></td>
-        <td>S/. ${monto.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</td>
-        <td>${pct}%</td>
-        <td><button class="btn btn-danger" onclick="eliminarSocioInicial(${idx})">Eliminar</button></td>
+      const tr = document.createElement("tr");
+      tr.id = `socio_row_${id}`;
+      tr.innerHTML = `
+        <td><input type="text" class="socio-nombre" placeholder="Ingrese Nombre" value="${nombreDefault}" oninput="onCambioSocio()"></td>
+        <td><input type="number" class="socio-acciones" placeholder="0" min="0" value="${accionesDefault}" oninput="onCambioSocio()"></td>
+        <td class="socio-monto">S/. 0.00</td>
+        <td class="socio-pct">0.00%</td>
+        <td><button type="button" class="btn btn-danger" onclick="eliminarSocio(${id})">Eliminar</button></td>
       `;
-        tbody.appendChild(tr);
+      tbody.appendChild(tr);
+
+      recalcularTotalesIniciales();
+      actualizarTodosLosSelectsVendedores();
+    }
+
+    function eliminarSocio(id) {
+      const fila = document.getElementById(`socio_row_${id}`);
+      if (fila) fila.remove();
+      recalcularTotalesIniciales();
+      actualizarTodosLosSelectsVendedores();
+    }
+
+    function onCambioSocio() {
+      recalcularTotalesIniciales();
+      actualizarTodosLosSelectsVendedores();
+    }
+
+    function getListaSocios() {
+      const filas = document.querySelectorAll("#tbodyInicial tr");
+      let lista = [];
+      filas.forEach(fila => {
+        const nombre = fila.querySelector(".socio-nombre").value.trim();
+        const acciones = parseInt(fila.querySelector(".socio-acciones").value) || 0;
+        if (nombre !== "" || acciones > 0) {
+          lista.push({ nombre: nombre, acciones: acciones });
+        }
+      });
+      return lista;
+    }
+
+    function recalcularTotalesIniciales() {
+      const filas = document.querySelectorAll("#tbodyInicial tr");
+      const valorNominal = getValorNominal();
+      let totalAcciones = 0;
+
+      filas.forEach(fila => {
+        const acc = parseInt(fila.querySelector(".socio-acciones").value) || 0;
+        totalAcciones += acc;
+      });
+
+      filas.forEach(fila => {
+        const acc = parseInt(fila.querySelector(".socio-acciones").value) || 0;
+        const monto = acc * valorNominal;
+        const pct = totalAcciones > 0 ? ((acc / totalAcciones) * 100).toFixed(2) : "0.00";
+
+        fila.querySelector(".socio-monto").innerText = "S/. " + monto.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        fila.querySelector(".socio-pct").innerText = pct + "%";
       });
 
       document.getElementById("totAccionesInicial").innerText = totalAcciones.toLocaleString('es-PE');
-      document.getElementById("totMontoInicial").innerText = "S/. " + (totalAcciones * valorNominal).toLocaleString('es-PE', { minimumFractionDigits: 2 });
+      document.getElementById("totMontoInicial").innerText = "S/. " + (totalAcciones * valorNominal).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       document.getElementById("totPorcentajeInicial").innerText = totalAcciones > 0 ? "100%" : "0%";
-
-      actualizarSelectsVendedores();
     }
 
-    function actualizarSocioInicial(idx, campo, valor) {
-      sociosIniciales[idx][campo] = valor;
-      renderizarSociosIniciales();
-    }
+    // 2. GESTIÓN DE TRANSACCIONES
+    function agregarTransaccion() {
+      transRowCounter++;
+      const id = transRowCounter;
+      const tbody = document.getElementById("tbodyTransitorio");
 
-    function agregarSocioInicial() {
-      sociosIniciales.push({ nombre: "", acciones: "" });
-      renderizarSociosIniciales();
-    }
-
-    function eliminarSocioInicial(idx) {
-      sociosIniciales.splice(idx, 1);
-      renderizarSociosIniciales();
-    }
-
-    function renderizarTransacciones() {
-      const tbody = document.querySelector("#tablaTransitorio tbody");
-      tbody.innerHTML = "";
-
-      transacciones.forEach((t, idx) => {
-        let tr = document.createElement("tr");
-        tr.innerHTML = `
-        <td><select onchange="actualizarTransaccion(${idx}, 'vendedor', this.value)" id="vendedor_${idx}"></select></td>
-        <td><input type="text" placeholder="Nombre Comprador" value="${t.comprador}" oninput="actualizarTransaccion(${idx}, 'comprador', this.value)"></td>
+      const tr = document.createElement("tr");
+      tr.id = `trans_row_${id}`;
+      tr.innerHTML = `
+        <td><select class="trans-vendedor" id="select_vend_${id}"></select></td>
+        <td><input type="text" class="trans-comprador" placeholder="Nombre Comprador"></td>
         <td>
-          <select onchange="actualizarTransaccion(${idx}, 'modo', this.value)">
-            <option value="porcentaje" ${t.modo === 'porcentaje' ? 'selected' : ''}>% del Total Empresa</option>
-            <option value="acciones" ${t.modo === 'acciones' ? 'selected' : ''}>Cantidad de Acciones</option>
+          <select class="trans-modo">
+            <option value="porcentaje">% del Total Empresa</option>
+            <option value="acciones">Cantidad de Acciones</option>
           </select>
         </td>
-        <td><input type="number" placeholder="0" value="${t.valor === 0 ? '' : t.valor}" step="0.01" oninput="actualizarTransaccion(${idx}, 'valor', parseFloat(this.value)||0)"></td>
-        <td id="accionesCalc_${idx}">-</td>
-        <td id="montoCalc_${idx}">-</td>
-        <td><button class="btn btn-danger" onclick="eliminarTransaccion(${idx})">Eliminar</button></td>
+        <td><input type="number" class="trans-valor" placeholder="0" step="0.01"></td>
+        <td class="trans-calc-acc">-</td>
+        <td class="trans-calc-monto">-</td>
+        <td><button type="button" class="btn btn-danger" onclick="eliminarTransaccion(${id})">Eliminar</button></td>
       `;
-        tbody.appendChild(tr);
-      });
+      tbody.appendChild(tr);
 
-      actualizarSelectsVendedores();
+      poblarSelectVendedor(document.getElementById(`select_vend_${id}`));
     }
 
-    function actualizarSelectsVendedores() {
-      transacciones.forEach((t, idx) => {
-        let selectVendedor = document.getElementById(`vendedor_${idx}`);
-        if (selectVendedor) {
-          selectVendedor.innerHTML = '<option value="">-- Seleccionar --</option>';
-          sociosIniciales.forEach(s => {
-            if (s.nombre.trim() !== "") {
-              let opt = document.createElement("option");
-              opt.value = s.nombre;
-              opt.innerText = s.nombre;
-              if (s.nombre === t.vendedor) opt.selected = true;
-              selectVendedor.appendChild(opt);
-            }
-          });
+    function eliminarTransaccion(id) {
+      const fila = document.getElementById(`trans_row_${id}`);
+      if (fila) fila.remove();
+    }
+
+    function poblarSelectVendedor(selectElement) {
+      if (!selectElement) return;
+      const valorSeleccionado = selectElement.value;
+      selectElement.innerHTML = '<option value="">-- Seleccionar Vendedor --</option>';
+
+      const socios = getListaSocios();
+      socios.forEach(s => {
+        if (s.nombre) {
+          const opt = document.createElement("option");
+          opt.value = s.nombre;
+          opt.innerText = s.nombre;
+          if (s.nombre === valorSeleccionado) opt.selected = true;
+          selectElement.appendChild(opt);
         }
       });
     }
 
-    function actualizarTransaccion(idx, campo, valor) {
-      transacciones[idx][campo] = valor;
+    function actualizarTodosLosSelectsVendedores() {
+      const selects = document.querySelectorAll(".trans-vendedor");
+      selects.forEach(sel => poblarSelectVendedor(sel));
     }
 
-    function agregarTransaccion() {
-      transacciones.push({ vendedor: "", comprador: "", modo: "porcentaje", valor: "" });
-      renderizarTransacciones();
-    }
-
-    function eliminarTransaccion(idx) {
-      transacciones.splice(idx, 1);
-      renderizarTransacciones();
-    }
-
-    function recalcularTodo() {
-      renderizarSociosIniciales();
-      procesarCalculos();
-    }
-
+    // 3. PROCESAMIENTO DEL ESCENARIO FINAL
     function procesarCalculos() {
-      let totalAccionesGlobal = sociosIniciales.reduce((acc, s) => acc + (parseInt(s.acciones) || 0), 0);
-      let valorNominal = getValorNominal();
+      const socios = getListaSocios();
+      const valorNominal = getValorNominal();
+      const totalAccionesGlobal = socios.reduce((acc, s) => acc + s.acciones, 0);
 
       let saldosFinales = {};
-      sociosIniciales.forEach(s => {
-        if (s.nombre.trim() !== "") {
-          saldosFinales[s.nombre] = { acciones: parseInt(s.acciones) || 0, esNuevo: false };
+      socios.forEach(s => {
+        if (s.nombre) {
+          saldosFinales[s.nombre] = { acciones: s.acciones, esNuevo: false };
         }
       });
 
-      transacciones.forEach((t, idx) => {
+      const filasTrans = document.querySelectorAll("#tbodyTransitorio tr");
+      filasTrans.forEach(fila => {
+        const vend = fila.querySelector(".trans-vendedor").value;
+        const comp = fila.querySelector(".trans-comprador").value.trim();
+        const modo = fila.querySelector(".trans-modo").value;
+        const val = parseFloat(fila.querySelector(".trans-valor").value) || 0;
+
         let accionesTransferidas = 0;
-        let valInput = parseFloat(t.valor) || 0;
-
-        if (t.modo === 'porcentaje') {
-          accionesTransferidas = Math.round((valInput / 100) * totalAccionesGlobal);
+        if (modo === 'porcentaje') {
+          accionesTransferidas = Math.round((val / 100) * totalAccionesGlobal);
         } else {
-          accionesTransferidas = Math.round(valInput);
+          accionesTransferidas = Math.round(val);
         }
 
-        let montoOperacion = accionesTransferidas * valorNominal;
+        const montoOperacion = accionesTransferidas * valorNominal;
+        fila.querySelector(".trans-calc-acc").innerText = accionesTransferidas.toLocaleString('es-PE');
+        fila.querySelector(".trans-calc-monto").innerText = "S/. " + montoOperacion.toLocaleString('es-PE', { minimumFractionDigits: 2 });
 
-        let elAcc = document.getElementById(`accionesCalc_${idx}`);
-        let elMonto = document.getElementById(`montoCalc_${idx}`);
-
-        if (elAcc) elAcc.innerText = accionesTransferidas.toLocaleString('es-PE');
-        if (elMonto) elMonto.innerText = "S/. " + montoOperacion.toLocaleString('es-PE', { minimumFractionDigits: 2 });
-
-        if (t.vendedor && saldosFinales[t.vendedor]) {
-          saldosFinales[t.vendedor].acciones -= accionesTransferidas;
+        if (vend && saldosFinales[vend]) {
+          saldosFinales[vend].acciones -= accionesTransferidas;
         }
 
-        if (t.comprador && t.comprador.trim() !== "") {
-          let compNombre = t.comprador.trim();
-          if (!saldosFinales[compNombre]) {
-            saldosFinales[compNombre] = { acciones: 0, esNuevo: true };
+        if (comp !== "") {
+          if (!saldosFinales[comp]) {
+            saldosFinales[comp] = { acciones: 0, esNuevo: true };
           }
-          saldosFinales[compNombre].acciones += accionesTransferidas;
+          saldosFinales[comp].acciones += accionesTransferidas;
         }
       });
 
-      const tbodyFinal = document.querySelector("#tablaFinal tbody");
+      const tbodyFinal = document.getElementById("tbodyFinal");
       tbodyFinal.innerHTML = "";
 
       let totalAccionesFinales = 0;
-      let keys = Object.keys(saldosFinales);
+      const keys = Object.keys(saldosFinales);
 
       if (keys.length === 0) {
         tbodyFinal.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#94A3B8;">Ingresa los datos arriba y haz clic en "Calcular Escenario Final".</td></tr>';
@@ -480,36 +495,36 @@
       }
 
       keys.forEach(nombre => {
-        let datos = saldosFinales[nombre];
-        let acciones = datos.acciones;
+        const datos = saldosFinales[nombre];
+        const acciones = datos.acciones;
         totalAccionesFinales += acciones;
-        let monto = acciones * valorNominal;
-        let pct = totalAccionesGlobal > 0 ? ((acciones / totalAccionesGlobal) * 100).toFixed(2) : "0.00";
+        const monto = acciones * valorNominal;
+        const pct = totalAccionesGlobal > 0 ? ((acciones / totalAccionesGlobal) * 100).toFixed(2) : "0.00";
 
-        let tr = document.createElement("tr");
+        const tr = document.createElement("tr");
         tr.innerHTML = `
-        <td><strong>${nombre}</strong></td>
-        <td><span class="badge ${datos.esNuevo ? 'badge-success' : 'badge-primary'}">${datos.esNuevo ? 'Nuevo Socio' : 'Fundador'}</span></td>
-        <td>${acciones.toLocaleString('es-PE')}</td>
-        <td>S/. ${monto.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</td>
-        <td>${pct}%</td>
-      `;
+          <td><strong>${nombre}</strong></td>
+          <td><span class="badge ${datos.esNuevo ? 'badge-success' : 'badge-primary'}">${datos.esNuevo ? 'Nuevo Socio' : 'Fundador'}</span></td>
+          <td>${acciones.toLocaleString('es-PE')}</td>
+          <td>S/. ${monto.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</td>
+          <td>${pct}%</td>
+        `;
         tbodyFinal.appendChild(tr);
       });
 
       document.getElementById("totAccionesFinal").innerText = totalAccionesFinales.toLocaleString('es-PE');
       document.getElementById("totMontoFinal").innerText = "S/. " + (totalAccionesFinales * valorNominal).toLocaleString('es-PE', { minimumFractionDigits: 2 });
-      document.getElementById("totPorcentajeFinal").innerText = totalAccionesGlobal > 0 ? "100%" : "0%";
+      document.getElementById("totPorcentajeFinal").innerText = totalAccionesGlobal > 0 ? ((totalAccionesFinales / totalAccionesGlobal) * 100).toFixed(0) + "%" : "0%";
     }
 
-    // FUNCIÓN PARA EXPORTAR RESULTADOS A EXCEL
+    // 4. EXPORTACIÓN A EXCEL
     function exportarExcel() {
       procesarCalculos();
 
-      let valorNominal = getValorNominal();
-      let totalAccionesGlobal = sociosIniciales.reduce((acc, s) => acc + (parseInt(s.acciones) || 0), 0);
+      const valorNominal = getValorNominal();
+      const socios = getListaSocios();
+      const totalAccionesGlobal = socios.reduce((acc, s) => acc + s.acciones, 0);
 
-      // 1. Hoja Comparativa (Inicial vs Final)
       let datosComparativos = [
         ["RESTRUCTURACIÓN SOCIETARIA - ESTADO DE ACCIONES"],
         ["Valor Nominal por Acción:", `S/. ${valorNominal.toFixed(2)}`],
@@ -519,40 +534,59 @@
       ];
 
       let saldosFinales = {};
-      sociosIniciales.forEach(s => {
-        if (s.nombre.trim() !== "") {
-          saldosFinales[s.nombre] = { accionesIniciales: parseInt(s.acciones) || 0, accionesFinales: parseInt(s.acciones) || 0, esNuevo: false };
+      socios.forEach(s => {
+        if (s.nombre) {
+          saldosFinales[s.nombre] = { accionesIniciales: s.acciones, accionesFinales: s.acciones, esNuevo: false };
         }
       });
 
-      transacciones.forEach(t => {
+      const filasTrans = document.querySelectorAll("#tbodyTransitorio tr");
+      let datosTransacciones = [
+        ["OPERACIONES DE TRANSFERENCIA DE ACCIONES"],
+        [],
+        ["VENDEDOR", "COMPRADOR", "MODO DE CÁLCULO", "VALOR INGRESADO", "ACCIONES TRANSFERIDAS", "MONTO OPERACIÓN (S/.)"]
+      ];
+
+      filasTrans.forEach(fila => {
+        const vend = fila.querySelector(".trans-vendedor").value;
+        const comp = fila.querySelector(".trans-comprador").value.trim();
+        const modo = fila.querySelector(".trans-modo").value;
+        const val = parseFloat(fila.querySelector(".trans-valor").value) || 0;
+
         let accionesTransferidas = 0;
-        let valInput = parseFloat(t.valor) || 0;
-        if (t.modo === 'porcentaje') {
-          accionesTransferidas = Math.round((valInput / 100) * totalAccionesGlobal);
+        if (modo === 'porcentaje') {
+          accionesTransferidas = Math.round((val / 100) * totalAccionesGlobal);
         } else {
-          accionesTransferidas = Math.round(valInput);
+          accionesTransferidas = Math.round(val);
         }
 
-        if (t.vendedor && saldosFinales[t.vendedor]) {
-          saldosFinales[t.vendedor].accionesFinales -= accionesTransferidas;
+        if (vend && saldosFinales[vend]) {
+          saldosFinales[vend].accionesFinales -= accionesTransferidas;
         }
 
-        if (t.comprador && t.comprador.trim() !== "") {
-          let compNombre = t.comprador.trim();
-          if (!saldosFinales[compNombre]) {
-            saldosFinales[compNombre] = { accionesIniciales: 0, accionesFinales: 0, esNuevo: true };
+        if (comp !== "") {
+          if (!saldosFinales[comp]) {
+            saldosFinales[comp] = { accionesIniciales: 0, accionesFinales: 0, esNuevo: true };
           }
-          saldosFinales[compNombre].accionesFinales += accionesTransferidas;
+          saldosFinales[comp].accionesFinales += accionesTransferidas;
         }
+
+        datosTransacciones.push([
+          vend,
+          comp,
+          modo === 'porcentaje' ? "% del Total" : "Cantidad Acciones",
+          val,
+          accionesTransferidas,
+          accionesTransferidas * valorNominal
+        ]);
       });
 
       Object.keys(saldosFinales).forEach(nombre => {
-        let d = saldosFinales[nombre];
-        let capIni = d.accionesIniciales * valorNominal;
-        let pctIni = totalAccionesGlobal > 0 ? ((d.accionesIniciales / totalAccionesGlobal) * 100).toFixed(2) + "%" : "0%";
-        let capFin = d.accionesFinales * valorNominal;
-        let pctFin = totalAccionesGlobal > 0 ? ((d.accionesFinales / totalAccionesGlobal) * 100).toFixed(2) + "%" : "0%";
+        const d = saldosFinales[nombre];
+        const capIni = d.accionesIniciales * valorNominal;
+        const pctIni = totalAccionesGlobal > 0 ? ((d.accionesIniciales / totalAccionesGlobal) * 100).toFixed(2) + "%" : "0%";
+        const capFin = d.accionesFinales * valorNominal;
+        const pctFin = totalAccionesGlobal > 0 ? ((d.accionesFinales / totalAccionesGlobal) * 100).toFixed(2) + "%" : "0%";
 
         datosComparativos.push([
           nombre,
@@ -566,41 +600,13 @@
         ]);
       });
 
-      // 2. Hoja de Transacciones
-      let datosTransacciones = [
-        ["OPERACIONES DE TRANSFERENCIA DE ACCIONES"],
-        [],
-        ["VENDEDOR", "COMPRADOR", "MODO DE CÁLCULO", "VALOR INGRESADO", "ACCIONES TRANSFERIDAS", "MONTO OPERACIÓN (S/.)"]
-      ];
-
-      transacciones.forEach(t => {
-        let accionesTransferidas = 0;
-        let valInput = parseFloat(t.valor) || 0;
-        if (t.modo === 'porcentaje') {
-          accionesTransferidas = Math.round((valInput / 100) * totalAccionesGlobal);
-        } else {
-          accionesTransferidas = Math.round(valInput);
-        }
-
-        datosTransacciones.push([
-          t.vendedor,
-          t.comprador,
-          t.modo === 'porcentaje' ? "% del Total" : "Cantidad Acciones",si
-          valInput,
-          accionesTransferidas,
-          accionesTransferidas * valorNominal
-        ]);
-      });
-
-      // Crear libro de Excel con SheetJS
-      let wb = XLSX.utils.book_new();
-      let wsComp = XLSX.utils.aoa_to_sheet(datosComparativos);
-      let wsTrans = XLSX.utils.aoa_to_sheet(datosTransacciones);
+      const wb = XLSX.utils.book_new();
+      const wsComp = XLSX.utils.aoa_to_sheet(datosComparativos);
+      const wsTrans = XLSX.utils.aoa_to_sheet(datosTransacciones);
 
       XLSX.utils.book_append_sheet(wb, wsComp, "Resumen Societario");
       XLSX.utils.book_append_sheet(wb, wsTrans, "Detalle Transacciones");
 
-      // Descargar archivo Excel
       XLSX.writeFile(wb, "Cuadro_Restructuracion_Acciones.xlsx");
     }
   </script>
